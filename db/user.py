@@ -14,8 +14,8 @@ class User(Base):
   stuid = Column('stuid', VARCHAR(7), nullable=False)
   name = Column('name', VARCHAR(50), nullable=False)
   webhook = Column('webhook', VARCHAR(2100), nullable=False)
-  created_at = Column('created_at', DATETIME, nullable=False)
-  updated_at = Column('updated_at', DATETIME, nullable=False)
+  created_at = Column('created_at', BIGINT(13), nullable=False)
+  updated_at = Column('updated_at', BIGINT(13), nullable=False)
 
   @classmethod
   def find(cls, id):
