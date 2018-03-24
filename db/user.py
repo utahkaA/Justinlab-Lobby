@@ -19,7 +19,6 @@ class User(Base):
 
   @classmethod
   def find(cls, id):
-    session = Session()
-    record = session.query(User).filter(User.id == id).first()
-    session.close()
+    with Session() as sess:
+      record = sess.query(User).filter(User.id == id).first()
     return record
