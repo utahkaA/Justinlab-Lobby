@@ -13,8 +13,7 @@ class User(Base):
   """
   __tablename__ = "users"
 
-  id = sa.Column('id', sa.Integer, primary_key=True)
-  stuid = sa.Column('stuid', sa.String(7), nullable=False)
+  stuid = sa.Column('stuid', sa.String(7), primary_key=True, nullable=False)
   name = sa.Column('name', sa.String(50), nullable=False)
   webhook = sa.Column('webhook', sa.String(2100), nullable=False)
   created_at = sa.Column('created_at', sa.String(13), nullable=False)

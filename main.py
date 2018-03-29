@@ -1,10 +1,14 @@
+# !/usr/bin/env python
+# coding: utf-8
 import signal
 import binascii
 import requests
 import json
 
-from db.session import Session
 import nfc
+
+from db.session import Session
+from db.models import User, Card
 
 def ctrlc_handler(signal, frame):
   print("\nKeyboardInterrupt")
@@ -36,17 +40,22 @@ class CardReader():
     else:
       return None
 
-def notify(session, info):
+def notify(info):
   idm = info["idm"]
   with Session() as sess:
-    match_users = sess.query(User).filter(
-      User.idm == idm
-    ).all()
-    target_user = match_users[0]
-    requests.post(target_user.webhook_url, data=json.dumps({
+    match_card = sess.query(Card).filter(
+      Card.idm == idm
+    ).first()
+
+    print(">>> student id: {0}".format(match_card.stuid))
+
+    match_user = sess.query(User).filter(
+      User.stuid == match_card.stuid
+    ).first()
+
+    requests.post(match_user.webhook, data=json.dumps({
       "text": "[Test] Touch and Go",
       "username": "Justinlab",
-      "icon_emoji": ":gopher",
       "link_names": 1,
     }))
 
@@ -60,8 +69,8 @@ def _main():
     reader.ready()
     info = reader.get_info()
     if info is not None:
-      # notify(session, info)
-      print(info)
+      notify(info)
+      # print(info)
 
 if __name__ == "__main__":
   _main()

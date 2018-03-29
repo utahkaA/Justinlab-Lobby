@@ -1,12 +1,12 @@
 # !usr/bin/env python
 # coding: utf-8
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 engine = create_engine(
   'mysql+pymysql://root:mariadb@0.0.0.0:3306/justinlab?charset=utf8',
   echo=True)
-Sess = sessionmaker(bind=engine, autocommit=False)
+Sess = scoped_session(sessionmaker(bind=engine, autocommit=False))
 
 class Session(object):
   def __init__(self):
