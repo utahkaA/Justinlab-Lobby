@@ -51,13 +51,17 @@ def classify(info):
     print(">>> student id: {0}".format(match_card.stuid))
   return match_card.stuid
 
-def notify(stuid):
+def notify(stuid, status):
   with Session() as sess:
     match_user = sess.query(User).filter(
       User.stuid == stuid
     ).first()
 
-    msg = "[Login] {0} が研究室に入室しました。".format(match_user.name)
+    if status == "login":
+      msg = "[Login] {0} が研究室に入室しました。".format(match_user.name)
+    else:
+      msg = "[Logout] {0} が研究室から退室しました。".format(match_user.name)
+
     requests.post(match_user.webhook, data=json.dumps({
       "text": msg,
       "username": "Justinlab",
@@ -90,6 +94,7 @@ def insert_log(stuid, timestamp):
     )
     sess.add(log)
     sess.commit()
+  return status
 
 def _main():
   # for Ctrl-C
@@ -102,8 +107,8 @@ def _main():
     info, timestamp = reader.get_info()
     if info is not None:
       stuid = classify(info)
-      notify(stuid)
-      insert_log(stuid, timestamp)
+      status = insert_log(stuid, timestamp)
+      notify(stuid, status)
 
 if __name__ == "__main__":
   _main()
