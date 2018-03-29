@@ -53,8 +53,9 @@ def notify(info):
       User.stuid == match_card.stuid
     ).first()
 
+    msg = "[Login] {0} が研究室に入室しました。".format(match_user.name)
     requests.post(match_user.webhook, data=json.dumps({
-      "text": "[Test] Touch and Go",
+      "text": msg,
       "username": "Justinlab",
       "link_names": 1,
     }))
