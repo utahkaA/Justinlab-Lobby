@@ -20,8 +20,7 @@ def upgrade():
   op.create_table(
     'cards',
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("stuid", sa.String(7), sa.ForeignKey("users.stuid"),
-              unique=True, nullable=False),
+    sa.Column("stuid", sa.String(7), sa.ForeignKey("users.stuid"), nullable=False),
     sa.Column("idm", sa.String(64), nullable=False),
     sa.Column("pmm", sa.String(64), nullable=False),
     sa.Column("sys", sa.String(64), nullable=False),

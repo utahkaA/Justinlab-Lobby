@@ -1,14 +1,16 @@
 # !/usr/bin/env python
 # coding: utf-8
 import signal
+import time
 import binascii
 import requests
 import json
 
+import sqlalchemy as sa
 import nfc
 
 from db.session import Session
-from db.models import User, Card
+from db.models import User, Card, Log
 
 def ctrlc_handler(signal, frame):
   print("\nKeyboardInterrupt")
@@ -36,21 +38,23 @@ class CardReader():
 
   def get_info(self):
     if self.info.viewkeys() >= {"idm", "pmm", "sys"}:
-      return self.info
+      return self.info, time.time()
     else:
       return None
 
-def notify(info):
+def classify(info):
   idm = info["idm"]
   with Session() as sess:
     match_card = sess.query(Card).filter(
       Card.idm == idm
     ).first()
-
     print(">>> student id: {0}".format(match_card.stuid))
+  return match_card.stuid
 
+def notify(stuid):
+  with Session() as sess:
     match_user = sess.query(User).filter(
-      User.stuid == match_card.stuid
+      User.stuid == stuid
     ).first()
 
     msg = "[Login] {0} が研究室に入室しました。".format(match_user.name)
@@ -60,6 +64,33 @@ def notify(info):
       "link_names": 1,
     }))
 
+def insert_log(stuid, timestamp):
+  with Session() as sess:
+    # get a last log record
+    last_log = sess.query(Log).filter(
+      Log.stuid == stuid
+    ).order_by(
+      sa.desc(Log.timestamp)
+    ).first()
+
+    # set status (login or logout)
+    is_touched = True
+    status = "login"
+    if last_log is not None:
+      # 1日以上のブランクを許さない処理
+      # このとき is_touched = False
+      is_touched = True
+      status = "login" if last_log.status == "logout" else "logout"
+
+    log = Log(
+      stuid=stuid,
+      timestamp=timestamp,
+      status=status,
+      is_touched=is_touched,
+    )
+    sess.add(log)
+    sess.commit()
+
 def _main():
   # for Ctrl-C
   signal.signal(signal.SIGINT, ctrlc_handler)
@@ -68,10 +99,11 @@ def _main():
   reader = CardReader(target)
   while True:
     reader.ready()
-    info = reader.get_info()
+    info, timestamp = reader.get_info()
     if info is not None:
-      notify(info)
-      # print(info)
+      stuid = classify(info)
+      notify(stuid)
+      insert_log(stuid, timestamp)
 
 if __name__ == "__main__":
   _main()

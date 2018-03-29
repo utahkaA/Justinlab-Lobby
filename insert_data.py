@@ -22,8 +22,8 @@ def insert_record(stuid, name, webhook, info):
     card = Card(
       stuid=stuid,
       idm=info["idm"],
-      pmm=["pmm"],
-      sys=["sys"],
+      pmm=info["pmm"],
+      sys=info["sys"],
       created_at=time.time(),
       updated_at=time.time(),
     )
@@ -44,7 +44,7 @@ def _main():
   target = 'usb:054c:02e1'
   reader = CardReader(target)
   reader.ready()
-  info = reader.get_info()
+  info, _ = reader.get_info()
   if info is not None:
     insert_record(stuid, name, webhook, info)
 
