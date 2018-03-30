@@ -1,3 +1,6 @@
 *.pyc
 .python-version
+
 sample.py
+
+log/
