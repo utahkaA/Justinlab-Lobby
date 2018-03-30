@@ -2,6 +2,7 @@
 # coding: utf-8
 import signal
 import time
+from datetime import datetime, timedelta
 import binascii
 import requests
 import json
@@ -78,19 +79,31 @@ def insert_log(stuid, timestamp):
     ).first()
 
     # set status (login or logout)
-    is_touched = True
-    status = "login"
     if last_log is not None:
-      # 1日以上のブランクを許さない処理
-      # このとき is_touched = False
-      is_touched = True
-      status = "login" if last_log.status == "logout" else "logout"
+      now_dt = datetime.fromtimestamp(timestamp)
+      last_dt = datetime.fromtimestamp(last_log.timestamp)
+      diff = now_dt.date() - last_dt.date()
+      if (diff.days >= 1) and (last_log.status == "login"):
+        # force logout feature
+        last_datetime = datetime.fromtimestamp(last_log.timestamp)
+        logout_date = last_datetime.date() + timedelta(days=1)
+        timestamp = time.mktime(logout_date.timetuple())
+        # insert force logout log
+        sess.add(Log(
+          stuid=stuid,
+          timestamp=timestamp,
+          status="logout",
+          is_touched=False,
+        ))
+        status = "login"
+      else:
+        status = "login" if last_log.status == "logout" else "logout"
 
     log = Log(
       stuid=stuid,
       timestamp=timestamp,
       status=status,
-      is_touched=is_touched,
+      is_touched=True,
     )
     sess.add(log)
     sess.commit()
