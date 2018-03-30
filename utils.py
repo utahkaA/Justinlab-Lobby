@@ -1,3 +1,4 @@
+import signal
 import os
 import datetime
 from logging import getLogger, Formatter, FileHandler, StreamHandler, DEBUG
@@ -23,3 +24,7 @@ def get_logger(module_name):
   logger.addHandler(handler)
 
   return logger
+
+def ctrlc_handler(signal, frame):
+  print("\nKeyboardInterrupt")
+  exit()
