@@ -6,7 +6,9 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 engine = create_engine(
   'mysql+pymysql://root:mariadb@0.0.0.0:3306/justinlab?charset=utf8',
   echo=True)
-Sess = scoped_session(sessionmaker(bind=engine, autocommit=False))
+Sess = scoped_session(sessionmaker(bind=engine,
+                                   autocommit=False,
+                                   expire_on_commit=False))
 
 class Session(object):
   def __init__(self):

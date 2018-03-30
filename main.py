@@ -46,11 +46,19 @@ class CardReader():
 def classify(info):
   idm = info["idm"]
   with Session() as sess:
-    match_card = sess.query(Card).filter(
-      Card.idm == idm
-    ).first()
-    print(">>> student id: {0}".format(match_card.stuid))
-  return match_card.stuid
+    try:
+      match_card = sess.query(Card).filter(
+        Card.idm == idm
+      ).first()
+      print(">>> student id: {0}".format(match_card.stuid))
+      res = match_card.stuid
+    except sa.exc.OperationalError as err:
+      print(err)
+      res = None
+    except Exception as err:
+      print(err.args)
+      res = None
+  return res
 
 def notify(stuid, status):
   with Session() as sess:
