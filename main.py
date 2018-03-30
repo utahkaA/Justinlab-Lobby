@@ -10,6 +10,7 @@ import json
 import sqlalchemy as sa
 import nfc
 
+from logger import get_logger
 from db.session import Session
 from db.models import User, Card, Log
 
@@ -71,11 +72,12 @@ def notify(stuid, status):
     else:
       msg = "[Logout] {0} が研究室から退室しました。".format(match_user.name)
 
-    requests.post(match_user.webhook, data=json.dumps({
+    r = requests.post(match_user.webhook, data=json.dumps({
       "text": msg,
       "username": "Justinlab",
       "link_names": 1,
     }))
+    return True
 
 def insert_log(stuid, timestamp):
   with Session() as sess:
@@ -121,15 +123,30 @@ def _main():
   # for Ctrl-C
   signal.signal(signal.SIGINT, ctrlc_handler)
 
+  # get logger
+  logger = get_logger(__name__)
+  logger.info("start Justinlab")
+
   target = 'usb:054c:02e1'
   reader = CardReader(target)
+  logger.info("card reader start")
   while True:
     reader.ready()
+    logger.info("waiting for being touched by a card...")
+
     info, timestamp = reader.get_info()
+    logger.info(info)
     if info is not None:
       stuid = classify(info)
+      logger.info(stuid)
+      if stuid is None:
+        continue
+
       status = insert_log(stuid, timestamp)
-      notify(stuid, status)
+      if notify(stuid, status):
+        logger.info("succeeded posting message to Slack")
+      else:
+        logger.info("failed posting message to Slack")
 
 if __name__ == "__main__":
   _main()
