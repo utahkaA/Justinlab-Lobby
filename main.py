@@ -3,45 +3,15 @@
 import signal
 import time
 from datetime import datetime, timedelta
-import binascii
 import requests
 import json
 
 import sqlalchemy as sa
-import nfc
 
+from utils import get_logger, ctrlc_handler
+from app.io import CardReader
 from db.session import Session
 from db.models import User, Card, Log
-
-def ctrlc_handler(signal, frame):
-  print("\nKeyboardInterrupt")
-  exit()
-
-class CardReader():
-  def __init__(self, target):
-    self.target = target
-    self.info = dict()
-
-  def on_connect(self, tag):
-    """
-    Card touch handler funcion
-    """
-    self.info = {
-      "idm": binascii.hexlify(tag.idm),
-      "pmm": binascii.hexlify(tag.pmm),
-      "sys": tag.sys
-    }
-    return True
-
-  def ready(self):
-    with nfc.ContactlessFrontend(self.target) as clf:
-      clf.connect(rdwr={'on-connect': self.on_connect})
-
-  def get_info(self):
-    if self.info.viewkeys() >= {"idm", "pmm", "sys"}:
-      return self.info, time.time()
-    else:
-      return None
 
 def classify(info):
   idm = info["idm"]
@@ -71,11 +41,24 @@ def notify(stuid, status):
     else:
       msg = "[Logout] {0} が研究室から退室しました。".format(match_user.name)
 
-    requests.post(match_user.webhook, data=json.dumps({
+    r = requests.post(match_user.webhook, data=json.dumps({
       "text": msg,
       "username": "Justinlab",
       "link_names": 1,
     }))
+    return True
+
+def _force_logout(stuid, now, last):
+  last_datetime = datetime.fromtimestamp(last)
+  logout_date = last_datetime.date() + timedelta(days=1)
+  timestamp = time.mktime(logout_date.timetuple())
+  log = Log(
+    stuid=stuid,
+    timestamp=timestamp,
+    status="logout",
+    is_touched=False,
+  )
+  return log
 
 def insert_log(stuid, timestamp):
   with Session() as sess:
@@ -87,23 +70,14 @@ def insert_log(stuid, timestamp):
     ).first()
 
     # set status (login or logout)
+    status = "login"
     if last_log is not None:
       now_dt = datetime.fromtimestamp(timestamp)
       last_dt = datetime.fromtimestamp(last_log.timestamp)
       diff = now_dt.date() - last_dt.date()
       if (diff.days >= 1) and (last_log.status == "login"):
         # force logout feature
-        last_datetime = datetime.fromtimestamp(last_log.timestamp)
-        logout_date = last_datetime.date() + timedelta(days=1)
-        timestamp = time.mktime(logout_date.timetuple())
-        # insert force logout log
-        sess.add(Log(
-          stuid=stuid,
-          timestamp=timestamp,
-          status="logout",
-          is_touched=False,
-        ))
-        status = "login"
+        sess.add(_force_logout(stuid, timestamp, last_log.timestamp))
       else:
         status = "login" if last_log.status == "logout" else "logout"
 
@@ -121,15 +95,37 @@ def _main():
   # for Ctrl-C
   signal.signal(signal.SIGINT, ctrlc_handler)
 
+  # get logger
+  logger = get_logger(__name__)
+  logger.info("start Justinlab")
+
   target = 'usb:054c:02e1'
   reader = CardReader(target)
+  logger.info("card reader start")
   while True:
     reader.ready()
-    info, timestamp = reader.get_info()
+    logger.info("waiting for being touched by a card...")
+
+    tag_type = reader.tag_type
+    logger.info("type of tag: {0}".format(tag_type))
+
+    info = reader.get_info()
+    logger.info("card information: {0}".format(info))
+
+    # get timestamp
+    timestamp = time.time()
+
     if info is not None:
       stuid = classify(info)
+      logger.info(stuid)
+      if stuid is None:
+        continue
+
       status = insert_log(stuid, timestamp)
-      notify(stuid, status)
+      if notify(stuid, status):
+        logger.info("succeeded posting message to Slack")
+      else:
+        logger.info("failed posting message to Slack")
 
 if __name__ == "__main__":
   _main()
