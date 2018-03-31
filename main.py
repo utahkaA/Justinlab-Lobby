@@ -106,8 +106,15 @@ def _main():
     reader.ready()
     logger.info("waiting for being touched by a card...")
 
-    info, timestamp = reader.get_info()
-    logger.info(info)
+    tag_type = reader.tag_type
+    logger.info("type of tag: {0}".format(tag_type))
+
+    info = reader.get_info()
+    logger.info("card information: {0}".format(info))
+
+    # get timestamp
+    timestamp = time.time()
+
     if info is not None:
       stuid = classify(info)
       logger.info(stuid)
