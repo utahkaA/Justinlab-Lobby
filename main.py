@@ -48,6 +48,18 @@ def notify(stuid, status):
     }))
     return True
 
+def _force_logout(stuid, now, last):
+  last_datetime = datetime.fromtimestamp(last)
+  logout_date = last_datetime.date() + timedelta(days=1)
+  timestamp = time.mktime(logout_date.timetuple())
+  log = Log(
+    stuid=stuid,
+    timestamp=timestamp,
+    status="logout",
+    is_touched=False,
+  )
+  return log
+
 def insert_log(stuid, timestamp):
   with Session() as sess:
     # get a last log record
@@ -58,23 +70,14 @@ def insert_log(stuid, timestamp):
     ).first()
 
     # set status (login or logout)
+    status = "login"
     if last_log is not None:
       now_dt = datetime.fromtimestamp(timestamp)
       last_dt = datetime.fromtimestamp(last_log.timestamp)
       diff = now_dt.date() - last_dt.date()
       if (diff.days >= 1) and (last_log.status == "login"):
         # force logout feature
-        last_datetime = datetime.fromtimestamp(last_log.timestamp)
-        logout_date = last_datetime.date() + timedelta(days=1)
-        timestamp = time.mktime(logout_date.timetuple())
-        # insert force logout log
-        sess.add(Log(
-          stuid=stuid,
-          timestamp=timestamp,
-          status="logout",
-          is_touched=False,
-        ))
-        status = "login"
+        sess.add(_force_logout(stuid, timestamp, last_log.timestamp))
       else:
         status = "login" if last_log.status == "logout" else "logout"
 
